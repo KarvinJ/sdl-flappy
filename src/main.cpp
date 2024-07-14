@@ -2,26 +2,135 @@
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL_mixer.h>
 #include <SDL2/SDL_ttf.h>
+#include <vector>
 #include <iostream>
+#include <fstream>
 
-const int SPEED = 600;
 const int SCREEN_WIDTH = 960;
 const int SCREEN_HEIGHT = 544;
-
-int score = 0;
 
 SDL_Window *window = nullptr;
 SDL_Renderer *renderer = nullptr;
 
 Mix_Chunk *test = nullptr;
 SDL_Texture *sprite = nullptr;
+SDL_Rect spriteBounds = {SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, 0, 0};
 
-SDL_Rect spriteBounds = {SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, 38, 34};
+SDL_Texture *startGameBackground = nullptr;
+SDL_Rect startGameBackgroundBounds = {SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, 0, 0};
+
+SDL_Texture *background = nullptr;
+SDL_Rect backgroundBounds = {0, 0, 0, 0};
+
+SDL_Texture *groundSprite = nullptr;
+SDL_Rect groundSpriteBounds = {0, 0, 0, 0};
+
+SDL_Rect groundCollisionBounds;
+
+SDL_Texture *upPipeSprite;
+SDL_Texture *downPipeSprite;
 
 SDL_Texture *title = nullptr;
 SDL_Rect titleRect;
 
 SDL_Color fontColor = {255, 255, 255};
+
+bool isGameOver;
+float startGameTimer;
+
+int score = 0;
+float initialAngle = 0;
+int highScore;
+
+typedef struct
+{
+    float x;
+    float y;
+} Vector2;
+
+std::vector<Vector2> groundPositions;
+
+typedef struct
+{
+    SDL_Texture *sprite;
+    SDL_Rect bounds;
+    bool isBehind;
+    bool isDestroyed;
+} Pipe;
+
+std::vector<Pipe> pipes;
+
+float lastPipeSpawnTime;
+
+// void GeneratePipes()
+// {
+//     float upPipePosition = GetRandomValue(-220, 0);
+
+//     Rectangle upPipeBounds = {screenWidth, upPipePosition, (float)upPipeSprite.width, (float)upPipeSprite.height};
+
+//     Pipe upPipe = {upPipeSprite, upPipeBounds, false, false};
+
+//     // gap size = 80.
+//     float downPipePosition = upPipePosition + upPipe.bounds.height + 80;
+
+//     Rectangle downPipeBounds = {screenWidth, downPipePosition, (float)downPipeSprite.width, (float)downPipeSprite.height};
+
+//     Pipe downPipe = {downPipeSprite, downPipeBounds, false, false};
+
+//     pipes.push_back(upPipe);
+//     pipes.push_back(downPipe);
+
+//     lastPipeSpawnTime = GetTime();
+// }
+
+int LoadHighScore()
+{
+    std::string highScoreText;
+
+    // Read from the text file
+    std::ifstream highScores("high-score.txt");
+
+    // read the firstLine of the file and store the string data in my variable highScoreText.
+    getline(highScores, highScoreText);
+
+    // Close the file
+    highScores.close();
+
+    int highScore = stoi(highScoreText);
+
+    return highScore;
+}
+
+void SaveScore()
+{
+    std::ofstream highScores("high-score.txt");
+
+    std::string scoreString = std::to_string(score);
+    // Write to the file
+    highScores << scoreString;
+
+    // Close the file
+    highScores.close();
+}
+
+// void ResetGame(Player &player)
+// {
+//     if (score > highScore)
+//     {
+//         SaveScore();
+//     }
+
+//     highScore = LoadHighScore();
+
+//     isGameOver = false;
+//     score = 0;
+//     startGameTimer = 0;
+//     initialAngle = 0;
+//     player.bounds.x = screenWidth / 2;
+//     player.bounds.y = screenHeight / 2;
+//     player.gravity = 0;
+//     pipes.clear();
+// }
 
 void quitGame()
 {
@@ -75,7 +184,7 @@ void updateTitle(const char *text)
     SDL_FreeSurface(surface1);
 }
 
-SDL_Texture *loadSprite(const char *file, SDL_Renderer *renderer)
+SDL_Texture *loadSprite(const char *file)
 {
     SDL_Texture *texture = IMG_LoadTexture(renderer, file);
     return texture;
@@ -98,26 +207,6 @@ void update(float deltaTime)
 {
     const Uint8 *currentKeyStates = SDL_GetKeyboardState(NULL);
 
-    if (currentKeyStates[SDL_SCANCODE_W] && spriteBounds.y > 0)
-    {
-        spriteBounds.y -= SPEED * deltaTime;
-    }
-
-    else if (currentKeyStates[SDL_SCANCODE_S] && spriteBounds.y < SCREEN_HEIGHT - spriteBounds.h)
-    {
-        spriteBounds.y += SPEED * deltaTime;
-    }
-
-    else if (currentKeyStates[SDL_SCANCODE_A] && spriteBounds.x > 0)
-    {
-        spriteBounds.x -= SPEED * deltaTime;
-    }
-
-    else if (currentKeyStates[SDL_SCANCODE_D] && spriteBounds.x < SCREEN_WIDTH - spriteBounds.w)
-    {
-        spriteBounds.x += SPEED * deltaTime;
-    }
-
     if (currentKeyStates[SDL_SCANCODE_SPACE])
     {
         Mix_PlayChannel(-1, test, 0);
@@ -128,9 +217,19 @@ void update(float deltaTime)
 
         updateTitle(intToChar);
     }
+
+    for (Vector2 &groundPosition : groundPositions)
+            {
+                groundPosition.x -= 150 * deltaTime;
+
+                if (groundPosition.x < -groundSprite.width)
+                {
+                    groundPosition.x = groundSprite.width * 3;
+                }
+            }
 }
 
-void renderSprite(SDL_Texture *sprite, SDL_Renderer *renderer, SDL_Rect spriteBounds)
+void renderSprite(SDL_Texture *sprite, SDL_Rect spriteBounds)
 {
     SDL_QueryTexture(sprite, NULL, NULL, &spriteBounds.w, &spriteBounds.h);
     SDL_RenderCopy(renderer, sprite, NULL, &spriteBounds);
@@ -138,19 +237,30 @@ void renderSprite(SDL_Texture *sprite, SDL_Renderer *renderer, SDL_Rect spriteBo
 
 void render()
 {
+    // This if optional when I have a texture of background.
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
 
-    SDL_QueryTexture(title, NULL, NULL, &titleRect.w, &titleRect.h);
-    titleRect.x = SCREEN_WIDTH / 2 - titleRect.w / 2;
-    titleRect.y = SCREEN_HEIGHT / 2 - titleRect.h / 2;
-    // After I use the &titleRect.w, &titleRect.h in the SDL_QueryTexture.
-    //  I get the width and height of the actual texture
-    SDL_RenderCopy(renderer, title, NULL, &titleRect);
+    backgroundBounds.x = 0;
+    SDL_RenderCopy(renderer, background, NULL, &backgroundBounds);
 
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+    backgroundBounds.x = backgroundBounds.w;
+    SDL_RenderCopy(renderer, background, NULL, &backgroundBounds);
 
-    renderSprite(sprite, renderer, spriteBounds);
+    backgroundBounds.x = backgroundBounds.w * 2;
+    SDL_RenderCopy(renderer, background, NULL, &backgroundBounds);
+
+    backgroundBounds.x = backgroundBounds.w * 3;
+    SDL_RenderCopy(renderer, background, NULL, &backgroundBounds);
+
+    for (Vector2 groundPosition : groundPositions)
+    {
+        groundSpriteBounds.x = groundPosition.x;
+        groundSpriteBounds.y = groundPosition.y;
+        SDL_RenderCopy(renderer, groundSprite, NULL, &groundSpriteBounds);
+    }
+
+    renderSprite(sprite, spriteBounds);
 
     SDL_RenderPresent(renderer);
 }
@@ -186,7 +296,6 @@ int main(int argc, char *args[])
         return 1;
     }
 
-    // Initialize SDL_mixer
     if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0)
     {
         printf("SDL_mixer could not initialize! SDL_mixer Error: %s\n", Mix_GetError());
@@ -197,10 +306,28 @@ int main(int argc, char *args[])
         return 1;
     }
 
-    // load title
-    updateTitle("Hello!");
-    
-    sprite = loadSprite("res/sprites/alien_1.png", renderer);
+    highScore = LoadHighScore();
+
+    startGameBackground = loadSprite("res/sprites/message.png");
+    background = loadSprite("res/sprites/background-day.png");
+
+    // I just need to query the texture just one time to get the width and height of my texture.
+    SDL_QueryTexture(background, NULL, NULL, &backgroundBounds.w, &backgroundBounds.h);
+
+    groundSprite = loadSprite("res/sprites/base.png");
+
+    SDL_QueryTexture(groundSprite, NULL, NULL, &groundSpriteBounds.w, &groundSpriteBounds.h);
+
+    const float groundYPosition = SCREEN_HEIGHT - groundSpriteBounds.h;
+
+    groundCollisionBounds = {0, (int)groundYPosition, SCREEN_HEIGHT, groundSpriteBounds.h};
+
+    groundPositions.push_back({0, groundYPosition});
+    groundPositions.push_back({(float)groundSpriteBounds.w, groundYPosition});
+    groundPositions.push_back({(float)groundSpriteBounds.w * 2, groundYPosition});
+    groundPositions.push_back({(float)groundSpriteBounds.w * 3, groundYPosition});
+
+    sprite = loadSprite("res/sprites/yellowbird-midflap.png");
     test = loadSound("res/sounds/magic.wav");
 
     Uint32 previousFrameTime = SDL_GetTicks();
