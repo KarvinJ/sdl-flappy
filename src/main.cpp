@@ -13,24 +13,24 @@ SDL_Window *window = nullptr;
 SDL_Renderer *renderer = nullptr;
 
 Mix_Chunk *test = nullptr;
-SDL_Texture *sprite = nullptr;
-SDL_Rect spriteBounds = {SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, 0, 0};
 
-SDL_Texture *startGameBackground = nullptr;
-SDL_Rect startGameBackgroundBounds = {SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, 0, 0};
+typedef struct
+{
+    SDL_Texture *texture;
+    SDL_Rect textureBounds;
+} Sprite;
 
-SDL_Texture *background = nullptr;
-SDL_Rect backgroundBounds = {0, 0, 0, 0};
+Sprite playerSprite;
+Sprite startGameSprite;
+Sprite backgroundSprite;
+Sprite groundSpriteV2;
 
-SDL_Texture *groundSprite = nullptr;
-SDL_Rect groundSpriteBounds = {0, 0, 0, 0};
+Sprite upPipeSprite;
+Sprite downPipeSprite;
 
 float groundYPosition;
 
 SDL_Rect groundCollisionBounds;
-
-SDL_Texture *upPipeSprite;
-SDL_Texture *downPipeSprite;
 
 SDL_Texture *title = nullptr;
 SDL_Rect titleRect;
@@ -137,7 +137,7 @@ void SaveScore()
 void quitGame()
 {
     Mix_FreeChunk(test);
-    SDL_DestroyTexture(sprite);
+    SDL_DestroyTexture(playerSprite.texture);
     SDL_DestroyTexture(title);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
@@ -186,10 +186,21 @@ void updateTitle(const char *text)
     SDL_FreeSurface(surface1);
 }
 
-SDL_Texture *loadSprite(const char *file)
+Sprite loadSprite(const char *file, int positionX, int positionY)
 {
+    SDL_Rect textureBounds = {positionX, positionY, 0, 0};
+
     SDL_Texture *texture = IMG_LoadTexture(renderer, file);
-    return texture;
+
+    // I just need to query the texture just one time to get the width and height of my texture.
+    if (texture != nullptr)
+    {
+        SDL_QueryTexture(texture, NULL, NULL, &textureBounds.w, &textureBounds.h);
+    }
+
+    Sprite sprite = {texture, textureBounds};
+
+    return sprite;
 }
 
 Mix_Chunk *loadSound(const char *p_filePath)
@@ -224,64 +235,55 @@ void update(float deltaTime)
     {
         groundPosition.x -= 150 * deltaTime;
 
-        if (groundPosition.x < -groundSpriteBounds.w)
+        if (groundPosition.x < -groundSpriteV2.textureBounds.w)
         {
-            groundPosition.x = groundSpriteBounds.w * 3;
+            groundPosition.x = groundSpriteV2.textureBounds.w * 3;
         }
     }
 }
 
-// No, it is not necessary to call SDL_QueryTexture every frame if the texture's width and height do not change. 
-// You can query the texture's dimensions once when you load the texture and store these dimensions. This can improve performance,
-//  as querying the texture every frame introduces unnecessary overhead. 
-void renderSprite(SDL_Texture *sprite, SDL_Rect spriteBounds)
+void renderSprite(Sprite sprite)
 {
-    SDL_QueryTexture(sprite, NULL, NULL, &spriteBounds.w, &spriteBounds.h);
-    SDL_RenderCopy(renderer, sprite, NULL, &spriteBounds);
+    SDL_RenderCopy(renderer, sprite.texture, NULL, &sprite.textureBounds);
 }
 
 void render()
 {
     // This if optional when I have a texture of background.
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-    SDL_RenderClear(renderer);
+    // SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    // SDL_RenderClear(renderer);
 
-    backgroundBounds.x = 0;
-    SDL_RenderCopy(renderer, background, NULL, &backgroundBounds);
+    backgroundSprite.textureBounds.x = 0;
+    renderSprite(backgroundSprite);
 
-    backgroundBounds.x = backgroundBounds.w;
-    SDL_RenderCopy(renderer, background, NULL, &backgroundBounds);
+    backgroundSprite.textureBounds.x = backgroundSprite.textureBounds.w;
+    renderSprite(backgroundSprite);
 
-    backgroundBounds.x = backgroundBounds.w * 2;
-    SDL_RenderCopy(renderer, background, NULL, &backgroundBounds);
+    backgroundSprite.textureBounds.x = backgroundSprite.textureBounds.w * 2;
+    renderSprite(backgroundSprite);
 
-    backgroundBounds.x = backgroundBounds.w * 3;
-    SDL_RenderCopy(renderer, background, NULL, &backgroundBounds);
+    backgroundSprite.textureBounds.x = backgroundSprite.textureBounds.w * 3;
+    renderSprite(backgroundSprite);
 
-    groundSpriteBounds.x = 0;
-    groundSpriteBounds.y = groundYPosition;
-    SDL_RenderCopy(renderer, groundSprite, NULL, &groundSpriteBounds);
+    groundSpriteV2.textureBounds.x = 0;
+    renderSprite(groundSpriteV2);
 
-    groundSpriteBounds.x = groundSpriteBounds.w;
-    groundSpriteBounds.y = groundYPosition;
-    SDL_RenderCopy(renderer, groundSprite, NULL, &groundSpriteBounds);
+    groundSpriteV2.textureBounds.x = groundSpriteV2.textureBounds.w;
+    renderSprite(groundSpriteV2);
 
-    groundSpriteBounds.x = groundSpriteBounds.w * 2;
-    groundSpriteBounds.y = groundYPosition;
-    SDL_RenderCopy(renderer, groundSprite, NULL, &groundSpriteBounds);
+    groundSpriteV2.textureBounds.x = groundSpriteV2.textureBounds.w * 2;
+    renderSprite(groundSpriteV2);
 
-    groundSpriteBounds.x = groundSpriteBounds.w * 3;
-    groundSpriteBounds.y = groundYPosition;
-    SDL_RenderCopy(renderer, groundSprite, NULL, &groundSpriteBounds);
+    groundSpriteV2.textureBounds.x = groundSpriteV2.textureBounds.w * 3;
+    renderSprite(groundSpriteV2);
 
     for (Vector2 groundPosition : groundPositions)
     {
-        groundSpriteBounds.x = groundPosition.x;
-        groundSpriteBounds.y = groundPosition.y;
-        SDL_RenderCopy(renderer, groundSprite, NULL, &groundSpriteBounds);
+        groundSpriteV2.textureBounds.x = groundPosition.x;
+        renderSprite(groundSpriteV2);
     }
 
-    renderSprite(sprite, spriteBounds);
+    renderSprite(playerSprite);
 
     SDL_RenderPresent(renderer);
 }
@@ -329,26 +331,24 @@ int main(int argc, char *args[])
 
     highScore = LoadHighScore();
 
-    startGameBackground = loadSprite("res/sprites/message.png");
-    background = loadSprite("res/sprites/background-day.png");
+    startGameSprite = loadSprite("res/sprites/message.png", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2);
+    backgroundSprite = loadSprite("res/sprites/background-day.png", 0, 0);
 
-    // I just need to query the texture just one time to get the width and height of my texture.
-    SDL_QueryTexture(background, NULL, NULL, &backgroundBounds.w, &backgroundBounds.h);
+    groundSpriteV2 = loadSprite("res/sprites/base.png", 0, 0);
 
-    groundSprite = loadSprite("res/sprites/base.png");
+    groundYPosition = SCREEN_HEIGHT - groundSpriteV2.textureBounds.h;
 
-    SDL_QueryTexture(groundSprite, NULL, NULL, &groundSpriteBounds.w, &groundSpriteBounds.h);
+    groundSpriteV2.textureBounds.y = groundYPosition;
 
-    groundYPosition = SCREEN_HEIGHT - groundSpriteBounds.h;
-
-    groundCollisionBounds = {0, (int)groundYPosition, SCREEN_HEIGHT, groundSpriteBounds.h};
+    groundCollisionBounds = {0, (int)groundYPosition, SCREEN_HEIGHT, groundSpriteV2.textureBounds.h};
 
     groundPositions.push_back({0, groundYPosition});
-    groundPositions.push_back({(float)groundSpriteBounds.w, groundYPosition});
-    groundPositions.push_back({(float)groundSpriteBounds.w * 2, groundYPosition});
-    groundPositions.push_back({(float)groundSpriteBounds.w * 3, groundYPosition});
+    groundPositions.push_back({(float)groundSpriteV2.textureBounds.w, groundYPosition});
+    groundPositions.push_back({(float)groundSpriteV2.textureBounds.w * 2, groundYPosition});
+    groundPositions.push_back({(float)groundSpriteV2.textureBounds.w * 3, groundYPosition});
 
-    sprite = loadSprite("res/sprites/yellowbird-midflap.png");
+    playerSprite = loadSprite("res/sprites/yellowbird-midflap.png", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2);
+
     test = loadSound("res/sounds/magic.wav");
 
     Uint32 previousFrameTime = SDL_GetTicks();
