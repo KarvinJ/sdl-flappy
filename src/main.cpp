@@ -9,10 +9,12 @@
 const int SCREEN_WIDTH = 960;
 const int SCREEN_HEIGHT = 544;
 
+float gravity = 0;
+
 SDL_Window *window = nullptr;
 SDL_Renderer *renderer = nullptr;
 
-Mix_Chunk *test = nullptr;
+Mix_Chunk *flapSound = nullptr;
 
 typedef struct
 {
@@ -27,6 +29,16 @@ Sprite groundSpriteV2;
 
 Sprite upPipeSprite;
 Sprite downPipeSprite;
+
+typedef struct
+{
+    float y;
+    Sprite sprite;
+    float impulse;
+    float gravityIncrement;
+} Player;
+
+Player player;
 
 float groundYPosition;
 
@@ -54,8 +66,7 @@ std::vector<Vector2> groundPositions;
 
 typedef struct
 {
-    SDL_Texture *sprite;
-    SDL_Rect bounds;
+    Sprite sprite;
     bool isBehind;
     bool isDestroyed;
 } Pipe;
@@ -66,16 +77,17 @@ float lastPipeSpawnTime;
 
 // void GeneratePipes()
 // {
-//     float upPipePosition = GetRandomValue(-220, 0);
+//     // float upPipePosition = GetRandomValue(-220, 0);
+//     float upPipePosition = 0;
 
-//     Rectangle upPipeBounds = {screenWidth, upPipePosition, (float)upPipeSprite.width, (float)upPipeSprite.height};
+//     SDL_Rect upPipeBounds = {SCREEN_WIDTH, upPipePosition, upPipeSprite.textureBounds.w, upPipeSprite.textureBounds.h};
 
-//     Pipe upPipe = {upPipeSprite, upPipeBounds, false, false};
+//     Pipe upPipe = {upPipeSprite, false, false};
 
 //     // gap size = 80.
 //     float downPipePosition = upPipePosition + upPipe.bounds.height + 80;
 
-//     Rectangle downPipeBounds = {screenWidth, downPipePosition, (float)downPipeSprite.width, (float)downPipeSprite.height};
+//     SDL_Rect downPipeBounds = {SCREEN_WIDTH, downPipePosition, downPipeSprite.textureBounds.w, downPipeSprite.textureBounds.h};
 
 //     Pipe downPipe = {downPipeSprite, downPipeBounds, false, false};
 
@@ -115,28 +127,28 @@ void SaveScore()
     highScores.close();
 }
 
-// void ResetGame(Player &player)
-// {
-//     if (score > highScore)
-//     {
-//         SaveScore();
-//     }
+void ResetGame(Player &player)
+{
+    if (score > highScore)
+    {
+        SaveScore();
+    }
 
-//     highScore = LoadHighScore();
+    highScore = LoadHighScore();
 
-//     isGameOver = false;
-//     score = 0;
-//     startGameTimer = 0;
-//     initialAngle = 0;
-//     player.bounds.x = screenWidth / 2;
-//     player.bounds.y = screenHeight / 2;
-//     player.gravity = 0;
-//     pipes.clear();
-// }
+    isGameOver = false;
+    score = 0;
+    startGameTimer = 0;
+    initialAngle = 0;
+    player.sprite.textureBounds.x = SCREEN_WIDTH / 2;
+    player.sprite.textureBounds.y = SCREEN_HEIGHT / 2;
+    gravity = 0;
+    pipes.clear();
+}
 
 void quitGame()
 {
-    Mix_FreeChunk(test);
+    Mix_FreeChunk(flapSound);
     SDL_DestroyTexture(playerSprite.texture);
     SDL_DestroyTexture(title);
     SDL_DestroyRenderer(renderer);
@@ -220,15 +232,22 @@ void update(float deltaTime)
 {
     const Uint8 *currentKeyStates = SDL_GetKeyboardState(NULL);
 
+    if (!isGameOver && player.sprite.textureBounds.y < SCREEN_HEIGHT - player.sprite.textureBounds.w)
+    {
+        player.y += gravity * deltaTime;
+        player.sprite.textureBounds.y = player.y;
+        gravity += player.gravityIncrement * deltaTime;
+    }
+
+    if (SDL_HasIntersection(&player.sprite.textureBounds, &groundCollisionBounds))
+    {
+        isGameOver = true;
+    }
+
     if (currentKeyStates[SDL_SCANCODE_SPACE])
     {
-        Mix_PlayChannel(-1, test, 0);
-
-        score++;
-        std::string string = std::to_string(score);
-        char const *intToChar = string.c_str();
-
-        updateTitle(intToChar);
+        gravity = player.impulse * deltaTime;
+        // Mix_PlayChannel(-1, test, 0);
     }
 
     for (Vector2 &groundPosition : groundPositions)
@@ -283,7 +302,7 @@ void render()
         renderSprite(groundSpriteV2);
     }
 
-    renderSprite(playerSprite);
+    renderSprite(player.sprite);
 
     SDL_RenderPresent(renderer);
 }
@@ -331,6 +350,9 @@ int main(int argc, char *args[])
 
     highScore = LoadHighScore();
 
+    upPipeSprite = loadSprite("res/sprites/pipe-green-180.png", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2);
+    downPipeSprite = loadSprite("res/sprites/pipe-green.png", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2);
+
     startGameSprite = loadSprite("res/sprites/message.png", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2);
     backgroundSprite = loadSprite("res/sprites/background-day.png", 0, 0);
 
@@ -349,7 +371,9 @@ int main(int argc, char *args[])
 
     playerSprite = loadSprite("res/sprites/yellowbird-midflap.png", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2);
 
-    test = loadSound("res/sounds/magic.wav");
+    player = Player{SCREEN_HEIGHT / 2, playerSprite, -10000, 400};
+
+    flapSound = loadSound("res/sounds/wing.wav");
 
     Uint32 previousFrameTime = SDL_GetTicks();
     Uint32 currentFrameTime = previousFrameTime;
