@@ -75,29 +75,36 @@ std::vector<Pipe> pipes;
 
 float lastPipeSpawnTime;
 
-// void GeneratePipes()
-// {
-//     // float upPipePosition = GetRandomValue(-220, 0);
-//     float upPipePosition = 0;
 
-//     SDL_Rect upPipeBounds = {SCREEN_WIDTH, upPipePosition, upPipeSprite.textureBounds.w, upPipeSprite.textureBounds.h};
+//pipes generation is failling. 
+void generatePipes()
+{
+    int upPipePosition = rand() % 220;
 
-//     Pipe upPipe = {upPipeSprite, false, false};
+    upPipePosition = 0;
 
-//     // gap size = 80.
-//     float downPipePosition = upPipePosition + upPipe.bounds.height + 80;
+    SDL_Rect upPipeBounds = {SCREEN_WIDTH, upPipePosition, upPipeSprite.textureBounds.w, upPipeSprite.textureBounds.h};
 
-//     SDL_Rect downPipeBounds = {SCREEN_WIDTH, downPipePosition, downPipeSprite.textureBounds.w, downPipeSprite.textureBounds.h};
+    Sprite upSprite = {upPipeSprite.texture, upPipeBounds};
 
-//     Pipe downPipe = {downPipeSprite, downPipeBounds, false, false};
+    Pipe upPipe = {upPipeSprite, false, false};
 
-//     pipes.push_back(upPipe);
-//     pipes.push_back(downPipe);
+    // gap size = 80.
+    float downPipePosition = upPipePosition + upPipeSprite.textureBounds.h + 80;
 
-//     lastPipeSpawnTime = GetTime();
-// }
+    SDL_Rect downPipeBounds = {SCREEN_WIDTH, downPipePosition, downPipeSprite.textureBounds.w, downPipeSprite.textureBounds.h};
 
-int LoadHighScore()
+    Sprite downSprite = {downPipeSprite.texture, downPipeBounds};
+
+    Pipe downPipe = {downPipeSprite, false, false};
+
+    pipes.push_back(upPipe);
+    pipes.push_back(downPipe);
+
+    lastPipeSpawnTime = 0;
+}
+
+int loadHighScore()
 {
     std::string highScoreText;
 
@@ -115,7 +122,7 @@ int LoadHighScore()
     return highScore;
 }
 
-void SaveScore()
+void saveScore()
 {
     std::ofstream highScores("high-score.txt");
 
@@ -127,14 +134,14 @@ void SaveScore()
     highScores.close();
 }
 
-void ResetGame(Player &player)
+void resetGame(Player &player)
 {
     if (score > highScore)
     {
-        SaveScore();
+        saveScore();
     }
 
-    highScore = LoadHighScore();
+    highScore = loadHighScore();
 
     isGameOver = false;
     score = 0;
@@ -232,6 +239,14 @@ void update(float deltaTime)
 {
     const Uint8 *currentKeyStates = SDL_GetKeyboardState(NULL);
 
+    lastPipeSpawnTime += deltaTime;
+
+    if (lastPipeSpawnTime >= 2)
+    {
+        std::cout << "enter here";
+        generatePipes();
+    }
+
     if (!isGameOver && player.sprite.textureBounds.y < SCREEN_HEIGHT - player.sprite.textureBounds.w)
     {
         player.y += gravity * deltaTime;
@@ -258,6 +273,11 @@ void update(float deltaTime)
         {
             groundPosition.x = groundSpriteV2.textureBounds.w * 3;
         }
+    }
+
+    for (Pipe pipe : pipes)
+    {
+        pipe.sprite.textureBounds.x -= 150 * deltaTime;
     }
 }
 
@@ -295,6 +315,14 @@ void render()
 
     groundSpriteV2.textureBounds.x = groundSpriteV2.textureBounds.w * 3;
     renderSprite(groundSpriteV2);
+
+    // renderSprite(upPipeSprite);
+    // renderSprite(downPipeSprite);
+
+    for (Pipe pipe : pipes)
+    {
+        renderSprite(pipe.sprite);
+    }
 
     for (Vector2 groundPosition : groundPositions)
     {
@@ -348,9 +376,9 @@ int main(int argc, char *args[])
         return 1;
     }
 
-    highScore = LoadHighScore();
+    highScore = loadHighScore();
 
-    upPipeSprite = loadSprite("res/sprites/pipe-green-180.png", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2);
+    upPipeSprite = loadSprite("res/sprites/pipe-green-180.png", SCREEN_WIDTH / 2, -220);
     downPipeSprite = loadSprite("res/sprites/pipe-green.png", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2);
 
     startGameSprite = loadSprite("res/sprites/message.png", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2);
@@ -378,6 +406,8 @@ int main(int argc, char *args[])
     Uint32 previousFrameTime = SDL_GetTicks();
     Uint32 currentFrameTime = previousFrameTime;
     float deltaTime = 0.0f;
+
+    srand(time(NULL));
 
     while (true)
     {
