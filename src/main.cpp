@@ -25,6 +25,8 @@ SDL_Rect backgroundBounds = {0, 0, 0, 0};
 SDL_Texture *groundSprite = nullptr;
 SDL_Rect groundSpriteBounds = {0, 0, 0, 0};
 
+float groundYPosition;
+
 SDL_Rect groundCollisionBounds;
 
 SDL_Texture *upPipeSprite;
@@ -219,16 +221,19 @@ void update(float deltaTime)
     }
 
     for (Vector2 &groundPosition : groundPositions)
-            {
-                groundPosition.x -= 150 * deltaTime;
+    {
+        groundPosition.x -= 150 * deltaTime;
 
-                if (groundPosition.x < -groundSprite.width)
-                {
-                    groundPosition.x = groundSprite.width * 3;
-                }
-            }
+        if (groundPosition.x < -groundSpriteBounds.w)
+        {
+            groundPosition.x = groundSpriteBounds.w * 3;
+        }
+    }
 }
 
+// No, it is not necessary to call SDL_QueryTexture every frame if the texture's width and height do not change. 
+// You can query the texture's dimensions once when you load the texture and store these dimensions. This can improve performance,
+//  as querying the texture every frame introduces unnecessary overhead. 
 void renderSprite(SDL_Texture *sprite, SDL_Rect spriteBounds)
 {
     SDL_QueryTexture(sprite, NULL, NULL, &spriteBounds.w, &spriteBounds.h);
@@ -252,6 +257,22 @@ void render()
 
     backgroundBounds.x = backgroundBounds.w * 3;
     SDL_RenderCopy(renderer, background, NULL, &backgroundBounds);
+
+    groundSpriteBounds.x = 0;
+    groundSpriteBounds.y = groundYPosition;
+    SDL_RenderCopy(renderer, groundSprite, NULL, &groundSpriteBounds);
+
+    groundSpriteBounds.x = groundSpriteBounds.w;
+    groundSpriteBounds.y = groundYPosition;
+    SDL_RenderCopy(renderer, groundSprite, NULL, &groundSpriteBounds);
+
+    groundSpriteBounds.x = groundSpriteBounds.w * 2;
+    groundSpriteBounds.y = groundYPosition;
+    SDL_RenderCopy(renderer, groundSprite, NULL, &groundSpriteBounds);
+
+    groundSpriteBounds.x = groundSpriteBounds.w * 3;
+    groundSpriteBounds.y = groundYPosition;
+    SDL_RenderCopy(renderer, groundSprite, NULL, &groundSpriteBounds);
 
     for (Vector2 groundPosition : groundPositions)
     {
@@ -318,7 +339,7 @@ int main(int argc, char *args[])
 
     SDL_QueryTexture(groundSprite, NULL, NULL, &groundSpriteBounds.w, &groundSpriteBounds.h);
 
-    const float groundYPosition = SCREEN_HEIGHT - groundSpriteBounds.h;
+    groundYPosition = SCREEN_HEIGHT - groundSpriteBounds.h;
 
     groundCollisionBounds = {0, (int)groundYPosition, SCREEN_HEIGHT, groundSpriteBounds.h};
 
