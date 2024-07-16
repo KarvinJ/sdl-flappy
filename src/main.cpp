@@ -75,28 +75,26 @@ std::vector<Pipe> pipes;
 
 float lastPipeSpawnTime;
 
-
-//pipes generation is failling. 
 void generatePipes()
 {
     int upPipePosition = rand() % 220;
 
-    upPipePosition = 0;
+    upPipePosition *= -1;
 
     SDL_Rect upPipeBounds = {SCREEN_WIDTH, upPipePosition, upPipeSprite.textureBounds.w, upPipeSprite.textureBounds.h};
 
     Sprite upSprite = {upPipeSprite.texture, upPipeBounds};
 
-    Pipe upPipe = {upPipeSprite, false, false};
+    Pipe upPipe = {upSprite, false, false};
 
     // gap size = 80.
-    float downPipePosition = upPipePosition + upPipeSprite.textureBounds.h + 80;
+    int downPipePosition = upPipePosition + upPipeSprite.textureBounds.h + 80;
 
     SDL_Rect downPipeBounds = {SCREEN_WIDTH, downPipePosition, downPipeSprite.textureBounds.w, downPipeSprite.textureBounds.h};
 
     Sprite downSprite = {downPipeSprite.texture, downPipeBounds};
 
-    Pipe downPipe = {downPipeSprite, false, false};
+    Pipe downPipe = {downSprite, false, false};
 
     pipes.push_back(upPipe);
     pipes.push_back(downPipe);
@@ -275,7 +273,7 @@ void update(float deltaTime)
         }
     }
 
-    for (Pipe pipe : pipes)
+    for (Pipe &pipe : pipes)
     {
         pipe.sprite.textureBounds.x -= 150 * deltaTime;
     }
@@ -316,12 +314,12 @@ void render()
     groundSpriteV2.textureBounds.x = groundSpriteV2.textureBounds.w * 3;
     renderSprite(groundSpriteV2);
 
-    // renderSprite(upPipeSprite);
-    // renderSprite(downPipeSprite);
-
     for (Pipe pipe : pipes)
     {
-        renderSprite(pipe.sprite);
+        if (pipe.sprite.textureBounds.x > -pipe.sprite.textureBounds.w)
+        {
+            renderSprite(pipe.sprite);
+        }
     }
 
     for (Vector2 groundPosition : groundPositions)
