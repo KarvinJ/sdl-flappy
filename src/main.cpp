@@ -31,6 +31,8 @@ typedef struct
     SDL_Rect textureBounds;
 } Sprite;
 
+SDL_Rect birdsBounds;
+Sprite birdSprites;
 Sprite playerSprite;
 Sprite startGameSprite;
 Sprite backgroundSprite;
@@ -278,7 +280,13 @@ void update(float deltaTime)
         generatePipes();
     }
 
-    if (startGameTimer > 1 && player.sprite.textureBounds.y < SCREEN_HEIGHT - player.sprite.textureBounds.w)
+    if (player.y < -player.sprite.textureBounds.h)
+    {
+        isGameOver = true;
+    }
+    
+
+    if (startGameTimer > 1)
     {
         player.y += gravity * deltaTime;
         player.sprite.textureBounds.y = player.y;
@@ -423,6 +431,7 @@ void render()
     }
 
     renderSprite(player.sprite);
+    // renderSprite({birdSprites.texture, birdsBounds});
 
     SDL_RenderPresent(renderer);
 }
@@ -538,6 +547,17 @@ int main(int argc, char *args[])
 
     loadNumbersSprites();
 
+    // birdSprites = loadSprite("res/images/yellow-bird.png", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2);
+
+    // birdsBounds = {0, 0, birdSprites.textureBounds.w / 3, birdSprites.textureBounds.h};
+
+    // birdSprites.textureBounds.w = birdSprites.textureBounds.w / 3;
+
+    // int framesCounter = 0;
+    // int framesSpeed = 6;
+
+    // int currentFrame = 0;
+
     Uint32 previousFrameTime = SDL_GetTicks();
     Uint32 currentFrameTime = previousFrameTime;
     float deltaTime = 0.0f;
@@ -556,6 +576,19 @@ int main(int argc, char *args[])
 
         if (!isGameOver && !isGamePaused)
         {
+            // framesCounter++;
+
+            // if (framesCounter >= (60 / framesSpeed))
+            // {
+            //     framesCounter = 0;
+            //     currentFrame++;
+
+            //     if (currentFrame > 2)
+            //         currentFrame = 0;
+
+            //     birdsBounds.x = currentFrame * birdsBounds.w / 3;
+            // }
+
             update(deltaTime);
         }
 
