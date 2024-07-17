@@ -35,6 +35,9 @@ Sprite upPipeSprite;
 Sprite downPipeSprite;
 
 std::vector<Sprite> numbers;
+std::vector<Sprite> numberTens;
+std::vector<Sprite> highScoreNumbers;
+std::vector<Sprite> highScoreNumberTens;
 
 typedef struct
 {
@@ -153,6 +156,7 @@ void resetGame(Player &player)
     score = 0;
     startGameTimer = 0;
     initialAngle = 0;
+    player.y = SCREEN_HEIGHT / 2;
     player.sprite.textureBounds.x = SCREEN_WIDTH / 2;
     player.sprite.textureBounds.y = SCREEN_HEIGHT / 2;
     gravity = 0;
@@ -172,7 +176,7 @@ void quitGame()
     SDL_Quit();
 }
 
-void handleEvents()
+void handleEvents(float deltaTime)
 {
     SDL_Event event;
 
@@ -184,7 +188,13 @@ void handleEvents()
             exit(0);
         }
 
-        else if (isGameOver && event.key.keysym.sym == SDLK_f)
+        if ((!isGameOver && event.type == SDL_MOUSEBUTTONDOWN) || (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_SPACE))
+        {
+            gravity = player.impulse * deltaTime;
+            Mix_PlayChannel(-1, flapSound, 0);
+        }
+
+        else if (isGameOver && event.type == SDL_MOUSEBUTTONDOWN)
         {
             resetGame(player);
         }
@@ -249,13 +259,10 @@ Mix_Chunk *loadSound(const char *p_filePath)
 
 void update(float deltaTime)
 {
-    const Uint8 *currentKeyStates = SDL_GetKeyboardState(NULL);
-
     lastPipeSpawnTime += deltaTime;
 
     if (lastPipeSpawnTime >= 2)
     {
-        std::cout << "enter here";
         generatePipes();
     }
 
@@ -269,12 +276,7 @@ void update(float deltaTime)
     if (SDL_HasIntersection(&player.sprite.textureBounds, &groundCollisionBounds))
     {
         isGameOver = true;
-    }
-
-    if (currentKeyStates[SDL_SCANCODE_SPACE])
-    {
-        gravity = player.impulse * deltaTime;
-        // Mix_PlayChannel(-1, test, 0);
+        Mix_PlayChannel(-1, dieSound, 0);
     }
 
     for (Vector2 &groundPosition : groundPositions)
@@ -362,23 +364,22 @@ void render()
         }
     }
 
-    // if (highScore < 10)
-    // {
+    if (highScore < 10)
+    {
+        highScoreNumbers[highScore].textureBounds.x = 320;
+        renderSprite(highScoreNumbers[highScore]);
+    }
+    else
+    {
+        int tens = (int)(highScore / 10);
+        int units = (int)(highScore % 10);
 
-    //     numbers[score].textureBounds.x = 320;
-    //     renderSprite(numbers[score]);
-    // }
-    // else
-    // {
-    //     int tens = (int)(highScore / 10);
-    //     int units = (int)(highScore % 10);
+        highScoreNumberTens[tens].textureBounds.x = 300;
+        highScoreNumbers[units].textureBounds.x = 320;
 
-    //     numbers[tens].textureBounds.x = 300;
-    //     numbers[units].textureBounds.x = 320;
-
-    //     renderSprite(numbers[tens]);
-    //     renderSprite(numbers[units]);
-    // }
+        renderSprite(highScoreNumberTens[tens]);
+        renderSprite(highScoreNumbers[units]);
+    }
 
     if (score < 10)
     {
@@ -389,9 +390,9 @@ void render()
         int tens = (int)(score / 10);
         int units = (score % 10);
 
-        numbers[tens].textureBounds.x = SCREEN_WIDTH / 2 - 20;
+        numberTens[tens].textureBounds.x = SCREEN_WIDTH / 2 - 20;
 
-        renderSprite(numbers[tens]);
+        renderSprite(numberTens[tens]);
         renderSprite(numbers[units]);
     }
 
@@ -504,7 +505,13 @@ int main(int argc, char *args[])
     {
         std::string completeString = baseString + std::to_string(i) + fileExtension;
 
-        numbers.push_back(loadSprite(completeString.c_str(), SCREEN_WIDTH / 2, 30));
+        Sprite numberSprite = loadSprite(completeString.c_str(), SCREEN_WIDTH / 2, 30);
+
+        numbers.push_back(numberSprite);
+        numberTens.push_back(numberSprite);
+
+        highScoreNumbers.push_back(numberSprite);
+        highScoreNumberTens.push_back(numberSprite);
     }
 
     Uint32 previousFrameTime = SDL_GetTicks();
@@ -521,7 +528,7 @@ int main(int argc, char *args[])
 
         previousFrameTime = currentFrameTime;
 
-        handleEvents();
+        handleEvents(deltaTime);
 
         if (!isGameOver)
         {
