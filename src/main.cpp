@@ -8,6 +8,7 @@
 
 const int SCREEN_WIDTH = 960;
 const int SCREEN_HEIGHT = 544;
+const int FRAME_RATE = 60;
 
 float gravity = 0;
 
@@ -15,6 +16,9 @@ SDL_Window *window = nullptr;
 SDL_Renderer *renderer = nullptr;
 
 Mix_Chunk *flapSound = nullptr;
+Mix_Chunk *pauseSound = nullptr;
+Mix_Chunk *dieSound = nullptr;
+Mix_Chunk *crossPipeSound = nullptr;
 
 typedef struct
 {
@@ -30,6 +34,8 @@ Sprite groundSpriteV2;
 Sprite upPipeSprite;
 Sprite downPipeSprite;
 
+std::vector<Sprite> numbers;
+
 typedef struct
 {
     float y;
@@ -44,8 +50,10 @@ float groundYPosition;
 
 SDL_Rect groundCollisionBounds;
 
-SDL_Texture *title = nullptr;
-SDL_Rect titleRect;
+SDL_Texture *highScoreTexture = nullptr;
+SDL_Rect highScoreBounds;
+
+TTF_Font *fontSquare = nullptr;
 
 SDL_Color fontColor = {255, 255, 255};
 
@@ -155,7 +163,7 @@ void quitGame()
 {
     Mix_FreeChunk(flapSound);
     SDL_DestroyTexture(playerSprite.texture);
-    SDL_DestroyTexture(title);
+    SDL_DestroyTexture(highScoreTexture);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     Mix_CloseAudio();
@@ -175,32 +183,38 @@ void handleEvents()
             quitGame();
             exit(0);
         }
+
+        else if (isGameOver && event.key.keysym.sym == SDLK_f)
+        {
+            resetGame(player);
+        }
     }
 }
 
-void updateTitle(const char *text)
+void updateTextureText(SDL_Texture *&texture, const char *text)
 {
-    TTF_Font *fontSquare = TTF_OpenFont("res/fonts/square_sans_serif_7.ttf", 64);
     if (fontSquare == nullptr)
     {
         printf("TTF_OpenFont fontSquare: %s\n", TTF_GetError());
     }
 
-    SDL_Surface *surface1 = TTF_RenderUTF8_Blended(fontSquare, text, fontColor);
-    if (surface1 == NULL)
+    SDL_Surface *surface = TTF_RenderUTF8_Blended(fontSquare, text, fontColor);
+    if (surface == nullptr)
     {
         printf("TTF_OpenFont: %s\n", TTF_GetError());
-        SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Unable to load create title! SDL Error: %s\n", SDL_GetError());
+        SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Unable to create text surface! SDL Error: %s\n", SDL_GetError());
         exit(3);
     }
-    SDL_DestroyTexture(title);
-    title = SDL_CreateTextureFromSurface(renderer, surface1);
-    if (title == NULL)
+
+    SDL_DestroyTexture(texture);
+    texture = SDL_CreateTextureFromSurface(renderer, surface);
+    if (texture == nullptr)
     {
         printf("TTF_OpenFont: %s\n", TTF_GetError());
-        SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Unable to load texture for image block.bmp! SDL Error: %s\n", SDL_GetError());
+        SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Unable to create texture from surface! SDL Error: %s\n", SDL_GetError());
     }
-    SDL_FreeSurface(surface1);
+
+    SDL_FreeSurface(surface);
 }
 
 Sprite loadSprite(const char *file, int positionX, int positionY)
@@ -273,9 +287,39 @@ void update(float deltaTime)
         }
     }
 
-    for (Pipe &pipe : pipes)
+    for (auto actualPipe = pipes.begin(); actualPipe != pipes.end();)
     {
-        pipe.sprite.textureBounds.x -= 150 * deltaTime;
+        if (!actualPipe->isDestroyed)
+        {
+            actualPipe->sprite.textureBounds.x -= 150 * deltaTime;
+        }
+
+        if (SDL_HasIntersection(&player.sprite.textureBounds, &actualPipe->sprite.textureBounds))
+        {
+            isGameOver = true;
+            Mix_PlayChannel(-1, dieSound, 0);
+        }
+
+        if (!actualPipe->isBehind && player.sprite.textureBounds.x > actualPipe->sprite.textureBounds.x)
+        {
+            actualPipe->isBehind = true;
+
+            if (actualPipe->sprite.textureBounds.y < player.sprite.textureBounds.y)
+            {
+                score++;
+                Mix_PlayChannel(-1, crossPipeSound, 0);
+            }
+        }
+
+        if (actualPipe->sprite.textureBounds.x < -actualPipe->sprite.textureBounds.w)
+        {
+            actualPipe->isDestroyed = true;
+            pipes.erase(actualPipe);
+        }
+        else
+        {
+            actualPipe++;
+        }
     }
 }
 
@@ -286,10 +330,6 @@ void renderSprite(Sprite sprite)
 
 void render()
 {
-    // This if optional when I have a texture of background.
-    // SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-    // SDL_RenderClear(renderer);
-
     backgroundSprite.textureBounds.x = 0;
     renderSprite(backgroundSprite);
 
@@ -316,11 +356,46 @@ void render()
 
     for (Pipe pipe : pipes)
     {
-        if (pipe.sprite.textureBounds.x > -pipe.sprite.textureBounds.w)
+        if (!pipe.isDestroyed)
         {
             renderSprite(pipe.sprite);
         }
     }
+
+    // if (highScore < 10)
+    // {
+
+    //     numbers[score].textureBounds.x = 320;
+    //     renderSprite(numbers[score]);
+    // }
+    // else
+    // {
+    //     int tens = (int)(highScore / 10);
+    //     int units = (int)(highScore % 10);
+
+    //     numbers[tens].textureBounds.x = 300;
+    //     numbers[units].textureBounds.x = 320;
+
+    //     renderSprite(numbers[tens]);
+    //     renderSprite(numbers[units]);
+    // }
+
+    if (score < 10)
+    {
+        renderSprite(numbers[score]);
+    }
+    else
+    {
+        int tens = (int)(score / 10);
+        int units = (score % 10);
+
+        numbers[tens].textureBounds.x = SCREEN_WIDTH / 2 - 20;
+
+        renderSprite(numbers[tens]);
+        renderSprite(numbers[units]);
+    }
+
+    SDL_RenderCopy(renderer, highScoreTexture, NULL, &highScoreBounds);
 
     for (Vector2 groundPosition : groundPositions)
     {
@@ -331,6 +406,16 @@ void render()
     renderSprite(player.sprite);
 
     SDL_RenderPresent(renderer);
+}
+
+void capFrameRate(Uint32 frameStartTime)
+{
+    Uint32 frameTime = SDL_GetTicks() - frameStartTime;
+
+    if (frameTime < 1000 / FRAME_RATE)
+    {
+        SDL_Delay(1000 / FRAME_RATE - frameTime);
+    }
 }
 
 int main(int argc, char *args[])
@@ -374,6 +459,19 @@ int main(int argc, char *args[])
         return 1;
     }
 
+    fontSquare = TTF_OpenFont("res/fonts/square_sans_serif_7.ttf", 36);
+
+    updateTextureText(highScoreTexture, "High Score: ");
+
+    SDL_QueryTexture(highScoreTexture, NULL, NULL, &highScoreBounds.w, &highScoreBounds.h);
+    highScoreBounds.x = 20;
+    highScoreBounds.y = 30;
+
+    flapSound = loadSound("res/sounds/wing.wav");
+    pauseSound = loadSound("res/sounds/magic.wav");
+    dieSound = loadSound("res/sounds/die.wav");
+    crossPipeSound = loadSound("res/sounds/point.wav");
+
     highScore = loadHighScore();
 
     upPipeSprite = loadSprite("res/sprites/pipe-green-180.png", SCREEN_WIDTH / 2, -220);
@@ -399,7 +497,15 @@ int main(int argc, char *args[])
 
     player = Player{SCREEN_HEIGHT / 2, playerSprite, -10000, 400};
 
-    flapSound = loadSound("res/sounds/wing.wav");
+    std::string baseString = "res/sprites/";
+    std::string fileExtension = ".png";
+
+    for (int i = 0; i < 10; i++)
+    {
+        std::string completeString = baseString + std::to_string(i) + fileExtension;
+
+        numbers.push_back(loadSprite(completeString.c_str(), SCREEN_WIDTH / 2, 30));
+    }
 
     Uint32 previousFrameTime = SDL_GetTicks();
     Uint32 currentFrameTime = previousFrameTime;
@@ -416,8 +522,15 @@ int main(int argc, char *args[])
         previousFrameTime = currentFrameTime;
 
         handleEvents();
-        update(deltaTime);
+
+        if (!isGameOver)
+        {
+            update(deltaTime);
+        }
+
         render();
+
+        capFrameRate(currentFrameTime);
     }
 
     return 0;
