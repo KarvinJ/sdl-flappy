@@ -10,11 +10,16 @@ const int SCREEN_WIDTH = 960;
 const int SCREEN_HEIGHT = 544;
 const int FRAME_RATE = 60;
 
+bool isGameOver;
+bool isGamePaused;
+float startGameTimer;
+
 float gravity = 0;
 
 SDL_Window *window = nullptr;
 SDL_Renderer *renderer = nullptr;
 
+Mix_Chunk *gamePausedSound = nullptr;
 Mix_Chunk *flapSound = nullptr;
 Mix_Chunk *pauseSound = nullptr;
 Mix_Chunk *dieSound = nullptr;
@@ -29,7 +34,7 @@ typedef struct
 Sprite playerSprite;
 Sprite startGameSprite;
 Sprite backgroundSprite;
-Sprite groundSpriteV2;
+Sprite groundSprite;
 
 Sprite upPipeSprite;
 Sprite downPipeSprite;
@@ -59,9 +64,6 @@ SDL_Rect highScoreBounds;
 TTF_Font *fontSquare = nullptr;
 
 SDL_Color fontColor = {255, 255, 255};
-
-bool isGameOver;
-float startGameTimer;
 
 int score = 0;
 float initialAngle = 0;
@@ -154,6 +156,7 @@ void resetGame(Player &player)
     highScore = loadHighScore();
 
     isGameOver = false;
+    startGameTimer = 0;
     score = 0;
     startGameTimer = 0;
     initialAngle = 0;
@@ -187,6 +190,12 @@ void handleEvents(float deltaTime)
         {
             quitGame();
             exit(0);
+        }
+
+        if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_f)
+        {
+            isGamePaused = !isGamePaused;
+            Mix_PlayChannel(-1, gamePausedSound, 0);
         }
 
         if ((!isGameOver && event.type == SDL_MOUSEBUTTONDOWN) || (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_SPACE))
@@ -260,6 +269,8 @@ Mix_Chunk *loadSound(const char *p_filePath)
 
 void update(float deltaTime)
 {
+    startGameTimer += deltaTime;
+
     lastPipeSpawnTime += deltaTime;
 
     if (lastPipeSpawnTime >= 2)
@@ -267,7 +278,7 @@ void update(float deltaTime)
         generatePipes();
     }
 
-    if (!isGameOver && player.sprite.textureBounds.y < SCREEN_HEIGHT - player.sprite.textureBounds.w)
+    if (startGameTimer > 1 && player.sprite.textureBounds.y < SCREEN_HEIGHT - player.sprite.textureBounds.w)
     {
         player.y += gravity * deltaTime;
         player.sprite.textureBounds.y = player.y;
@@ -284,9 +295,9 @@ void update(float deltaTime)
     {
         groundPosition.x -= 150 * deltaTime;
 
-        if (groundPosition.x < -groundSpriteV2.textureBounds.w)
+        if (groundPosition.x < -groundSprite.textureBounds.w)
         {
-            groundPosition.x = groundSpriteV2.textureBounds.w * 3;
+            groundPosition.x = groundSprite.textureBounds.w * 3;
         }
     }
 
@@ -346,17 +357,17 @@ void render()
     backgroundSprite.textureBounds.x = backgroundSprite.textureBounds.w * 3;
     renderSprite(backgroundSprite);
 
-    groundSpriteV2.textureBounds.x = 0;
-    renderSprite(groundSpriteV2);
+    groundSprite.textureBounds.x = 0;
+    renderSprite(groundSprite);
 
-    groundSpriteV2.textureBounds.x = groundSpriteV2.textureBounds.w;
-    renderSprite(groundSpriteV2);
+    groundSprite.textureBounds.x = groundSprite.textureBounds.w;
+    renderSprite(groundSprite);
 
-    groundSpriteV2.textureBounds.x = groundSpriteV2.textureBounds.w * 2;
-    renderSprite(groundSpriteV2);
+    groundSprite.textureBounds.x = groundSprite.textureBounds.w * 2;
+    renderSprite(groundSprite);
 
-    groundSpriteV2.textureBounds.x = groundSpriteV2.textureBounds.w * 3;
-    renderSprite(groundSpriteV2);
+    groundSprite.textureBounds.x = groundSprite.textureBounds.w * 3;
+    renderSprite(groundSprite);
 
     for (Pipe pipe : pipes)
     {
@@ -402,8 +413,13 @@ void render()
 
     for (Vector2 groundPosition : groundPositions)
     {
-        groundSpriteV2.textureBounds.x = groundPosition.x;
-        renderSprite(groundSpriteV2);
+        groundSprite.textureBounds.x = groundPosition.x;
+        renderSprite(groundSprite);
+    }
+
+    if (isGameOver)
+    {
+        renderSprite(startGameSprite);
     }
 
     renderSprite(player.sprite);
@@ -418,6 +434,25 @@ void capFrameRate(Uint32 frameStartTime)
     if (frameTime < 1000 / FRAME_RATE)
     {
         SDL_Delay(1000 / FRAME_RATE - frameTime);
+    }
+}
+
+void loadNumbersSprites()
+{
+    std::string baseString = "res/sprites/";
+    std::string fileExtension = ".png";
+
+    for (int i = 0; i < 10; i++)
+    {
+        std::string completeString = baseString + std::to_string(i) + fileExtension;
+
+        Sprite numberSprite = loadSprite(completeString.c_str(), SCREEN_WIDTH / 2, 30);
+
+        numbers.push_back(numberSprite);
+        numberTens.push_back(numberSprite);
+
+        highScoreNumbers.push_back(numberSprite);
+        highScoreNumberTens.push_back(numberSprite);
     }
 }
 
@@ -470,6 +505,7 @@ int main(int argc, char *args[])
     highScoreBounds.x = 20;
     highScoreBounds.y = 30;
 
+    gamePausedSound = loadSound("res/sounds/magic.wav");
     flapSound = loadSound("res/sounds/wing.wav");
     pauseSound = loadSound("res/sounds/magic.wav");
     dieSound = loadSound("res/sounds/die.wav");
@@ -480,41 +516,27 @@ int main(int argc, char *args[])
     upPipeSprite = loadSprite("res/sprites/pipe-green-180.png", SCREEN_WIDTH / 2, -220);
     downPipeSprite = loadSprite("res/sprites/pipe-green.png", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2);
 
-    startGameSprite = loadSprite("res/sprites/message.png", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2);
+    startGameSprite = loadSprite("res/sprites/message.png", SCREEN_WIDTH / 2 - 75, 103);
     backgroundSprite = loadSprite("res/sprites/background-day.png", 0, 0);
 
-    groundSpriteV2 = loadSprite("res/sprites/base.png", 0, 0);
+    groundSprite = loadSprite("res/sprites/base.png", 0, 0);
 
-    groundYPosition = SCREEN_HEIGHT - groundSpriteV2.textureBounds.h;
+    groundYPosition = SCREEN_HEIGHT - groundSprite.textureBounds.h;
 
-    groundSpriteV2.textureBounds.y = groundYPosition;
+    groundSprite.textureBounds.y = groundYPosition;
 
-    groundCollisionBounds = {0, (int)groundYPosition, SCREEN_HEIGHT, groundSpriteV2.textureBounds.h};
+    groundCollisionBounds = {0, (int)groundYPosition, SCREEN_HEIGHT, groundSprite.textureBounds.h};
 
     groundPositions.push_back({0, groundYPosition});
-    groundPositions.push_back({(float)groundSpriteV2.textureBounds.w, groundYPosition});
-    groundPositions.push_back({(float)groundSpriteV2.textureBounds.w * 2, groundYPosition});
-    groundPositions.push_back({(float)groundSpriteV2.textureBounds.w * 3, groundYPosition});
+    groundPositions.push_back({(float)groundSprite.textureBounds.w, groundYPosition});
+    groundPositions.push_back({(float)groundSprite.textureBounds.w * 2, groundYPosition});
+    groundPositions.push_back({(float)groundSprite.textureBounds.w * 3, groundYPosition});
 
     playerSprite = loadSprite("res/sprites/yellowbird-midflap.png", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2);
 
     player = Player{SCREEN_HEIGHT / 2, playerSprite, -10000, 400};
 
-    std::string baseString = "res/sprites/";
-    std::string fileExtension = ".png";
-
-    for (int i = 0; i < 10; i++)
-    {
-        std::string completeString = baseString + std::to_string(i) + fileExtension;
-
-        Sprite numberSprite = loadSprite(completeString.c_str(), SCREEN_WIDTH / 2, 30);
-
-        numbers.push_back(numberSprite);
-        numberTens.push_back(numberSprite);
-
-        highScoreNumbers.push_back(numberSprite);
-        highScoreNumberTens.push_back(numberSprite);
-    }
+    loadNumbersSprites();
 
     Uint32 previousFrameTime = SDL_GetTicks();
     Uint32 currentFrameTime = previousFrameTime;
@@ -532,7 +554,7 @@ int main(int argc, char *args[])
 
         handleEvents(deltaTime);
 
-        if (!isGameOver)
+        if (!isGameOver && !isGamePaused)
         {
             update(deltaTime);
         }
