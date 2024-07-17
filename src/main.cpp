@@ -77,6 +77,7 @@ std::vector<Vector2> groundPositions;
 
 typedef struct
 {
+    float x;
     Sprite sprite;
     bool isBehind;
     bool isDestroyed;
@@ -96,7 +97,7 @@ void generatePipes()
 
     Sprite upSprite = {upPipeSprite.texture, upPipeBounds};
 
-    Pipe upPipe = {upSprite, false, false};
+    Pipe upPipe = {SCREEN_WIDTH, upSprite, false, false};
 
     // gap size = 80.
     int downPipePosition = upPipePosition + upPipeSprite.textureBounds.h + 80;
@@ -105,7 +106,7 @@ void generatePipes()
 
     Sprite downSprite = {downPipeSprite.texture, downPipeBounds};
 
-    Pipe downPipe = {downSprite, false, false};
+    Pipe downPipe = {SCREEN_WIDTH, downSprite, false, false};
 
     pipes.push_back(upPipe);
     pipes.push_back(downPipe);
@@ -293,7 +294,8 @@ void update(float deltaTime)
     {
         if (!actualPipe->isDestroyed)
         {
-            actualPipe->sprite.textureBounds.x -= 150 * deltaTime;
+            actualPipe->x -= 150 * deltaTime;
+            actualPipe->sprite.textureBounds.x = actualPipe->x;
         }
 
         if (SDL_HasIntersection(&player.sprite.textureBounds, &actualPipe->sprite.textureBounds))
