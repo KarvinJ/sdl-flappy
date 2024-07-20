@@ -430,8 +430,7 @@ void render()
         renderSprite(startGameSprite);
     }
 
-    renderSprite(player.sprite);
-    // renderSprite({birdSprites.texture, birdsBounds});
+    SDL_RenderCopy(renderer, birdSprites.texture, &birdsBounds, &player.sprite.textureBounds);
 
     SDL_RenderPresent(renderer);
 }
@@ -547,16 +546,14 @@ int main(int argc, char *args[])
 
     loadNumbersSprites();
 
-    // birdSprites = loadSprite("res/images/yellow-bird.png", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2);
+    birdSprites = loadSprite("res/sprites/yellow-bird.png", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2);
 
-    // birdsBounds = {0, 0, birdSprites.textureBounds.w / 3, birdSprites.textureBounds.h};
+    birdsBounds = {0, 0, birdSprites.textureBounds.w / 3, birdSprites.textureBounds.h};
 
-    // birdSprites.textureBounds.w = birdSprites.textureBounds.w / 3;
+    int framesCounter = 0;
+    int framesSpeed = 6;
 
-    // int framesCounter = 0;
-    // int framesSpeed = 6;
-
-    // int currentFrame = 0;
+    int currentFrame = 0;
 
     Uint32 previousFrameTime = SDL_GetTicks();
     Uint32 currentFrameTime = previousFrameTime;
@@ -576,18 +573,18 @@ int main(int argc, char *args[])
 
         if (!isGameOver && !isGamePaused)
         {
-            // framesCounter++;
+            framesCounter++;
 
-            // if (framesCounter >= (60 / framesSpeed))
-            // {
-            //     framesCounter = 0;
-            //     currentFrame++;
+            if (framesCounter >= (60 / framesSpeed))
+            {
+                framesCounter = 0;
+                currentFrame++;
 
-            //     if (currentFrame > 2)
-            //         currentFrame = 0;
+                if (currentFrame > 2)
+                    currentFrame = 0;
 
-            //     birdsBounds.x = currentFrame * birdsBounds.w / 3;
-            // }
+                birdsBounds.x = currentFrame * birdsBounds.w;
+            }
 
             update(deltaTime);
         }
@@ -596,6 +593,4 @@ int main(int argc, char *args[])
 
         capFrameRate(currentFrameTime);
     }
-
-    return 0;
 }
