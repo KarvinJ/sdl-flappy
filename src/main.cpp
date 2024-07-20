@@ -14,6 +14,10 @@ bool isGameOver;
 bool isGamePaused;
 float startGameTimer;
 
+bool shouldRotateUp = false;
+float downRotationTimer = 0;
+float upRotationTimer = 0;
+
 float gravity = 0;
 
 SDL_Window *window = nullptr;
@@ -203,6 +207,12 @@ void handleEvents(float deltaTime)
         if ((!isGameOver && event.type == SDL_MOUSEBUTTONDOWN) || (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_SPACE))
         {
             gravity = player.impulse * deltaTime;
+
+            shouldRotateUp = true;
+            upRotationTimer = 1;
+            downRotationTimer = 0;
+            initialAngle = -20;
+
             Mix_PlayChannel(-1, flapSound, 0);
         }
 
@@ -284,7 +294,6 @@ void update(float deltaTime)
     {
         isGameOver = true;
     }
-    
 
     if (startGameTimer > 1)
     {
@@ -351,7 +360,7 @@ void renderSprite(Sprite sprite)
     SDL_RenderCopy(renderer, sprite.texture, NULL, &sprite.textureBounds);
 }
 
-void render()
+void render(float deltaTime)
 {
     backgroundSprite.textureBounds.x = 0;
     renderSprite(backgroundSprite);
@@ -430,7 +439,51 @@ void render()
         renderSprite(startGameSprite);
     }
 
-    SDL_RenderCopy(renderer, birdSprites.texture, &birdsBounds, &player.sprite.textureBounds);
+    // To flip my texture whether horizontal or vertical this are the values to use.
+    // SDL_FLIP_NONE = 0x00000000,     /**< Do not flip */
+    // SDL_FLIP_HORIZONTAL = 0x00000001,    /**< flip horizontally */
+    // SDL_FLIP_VERTICAL = 0x00000002     /**< flip vertically */
+
+    SDL_RenderCopyEx(renderer, birdSprites.texture, &birdsBounds, &player.sprite.textureBounds, initialAngle, NULL, SDL_FLIP_NONE);
+
+    if (startGameTimer > 1)
+    {
+        downRotationTimer += deltaTime;
+
+        if (downRotationTimer < 0.5f)
+        {
+            SDL_RenderCopyEx(renderer, birdSprites.texture, &birdsBounds, &player.sprite.textureBounds, initialAngle, NULL, SDL_FLIP_NONE);
+        }
+
+        if (shouldRotateUp)
+        {
+            if (upRotationTimer > 0)
+            {
+                upRotationTimer -= deltaTime;
+            }
+
+            if (upRotationTimer <= 0)
+            {
+                shouldRotateUp = false;
+            }
+
+            SDL_RenderCopyEx(renderer, birdSprites.texture, &birdsBounds, &player.sprite.textureBounds, initialAngle, NULL, SDL_FLIP_NONE);
+        }
+
+        if (downRotationTimer > 0.5f)
+        {
+            if (initialAngle <= 90 && !isGameOver && !isGamePaused)
+            {
+                initialAngle += 2;
+            }
+
+            SDL_RenderCopyEx(renderer, birdSprites.texture, &birdsBounds, &player.sprite.textureBounds, initialAngle, NULL, SDL_FLIP_NONE);
+        }
+    }
+    else
+    {
+        SDL_RenderCopyEx(renderer, birdSprites.texture, &birdsBounds, &player.sprite.textureBounds, initialAngle, NULL, SDL_FLIP_NONE);
+    }
 
     SDL_RenderPresent(renderer);
 }
@@ -589,7 +642,7 @@ int main(int argc, char *args[])
             update(deltaTime);
         }
 
-        render();
+        render(deltaTime);
 
         capFrameRate(currentFrameTime);
     }
