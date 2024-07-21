@@ -5,6 +5,8 @@
 #include <vector>
 #include <iostream>
 #include <fstream>
+#include "sdl_starter.h"
+#include "sdl_assets_loader.h"
 
 const int SCREEN_WIDTH = 960;
 const int SCREEN_HEIGHT = 544;
@@ -28,12 +30,6 @@ Mix_Chunk *flapSound = nullptr;
 Mix_Chunk *pauseSound = nullptr;
 Mix_Chunk *dieSound = nullptr;
 Mix_Chunk *crossPipeSound = nullptr;
-
-typedef struct
-{
-    SDL_Texture *texture;
-    SDL_Rect textureBounds;
-} Sprite;
 
 SDL_Rect birdsBounds;
 Sprite birdSprites;
@@ -247,36 +243,6 @@ void updateTextureText(SDL_Texture *&texture, const char *text)
     }
 
     SDL_FreeSurface(surface);
-}
-
-Sprite loadSprite(const char *file, int positionX, int positionY)
-{
-    SDL_Rect textureBounds = {positionX, positionY, 0, 0};
-
-    SDL_Texture *texture = IMG_LoadTexture(renderer, file);
-
-    // I just need to query the texture just one time to get the width and height of my texture.
-    if (texture != nullptr)
-    {
-        SDL_QueryTexture(texture, NULL, NULL, &textureBounds.w, &textureBounds.h);
-    }
-
-    Sprite sprite = {texture, textureBounds};
-
-    return sprite;
-}
-
-Mix_Chunk *loadSound(const char *p_filePath)
-{
-    Mix_Chunk *sound = nullptr;
-
-    sound = Mix_LoadWAV(p_filePath);
-    if (sound == nullptr)
-    {
-        printf("Failed to load scratch sound effect! SDL_mixer Error: %s\n", Mix_GetError());
-    }
-
-    return sound;
 }
 
 void update(float deltaTime)
@@ -507,7 +473,7 @@ void loadNumbersSprites()
     {
         std::string completeString = baseString + std::to_string(i) + fileExtension;
 
-        Sprite numberSprite = loadSprite(completeString.c_str(), SCREEN_WIDTH / 2, 30);
+        Sprite numberSprite = loadSprite(renderer, completeString.c_str(), SCREEN_WIDTH / 2, 30);
 
         numbers.push_back(numberSprite);
         numberTens.push_back(numberSprite);
@@ -574,13 +540,13 @@ int main(int argc, char *args[])
 
     highScore = loadHighScore();
 
-    upPipeSprite = loadSprite("res/sprites/pipe-green-180.png", SCREEN_WIDTH / 2, -220);
-    downPipeSprite = loadSprite("res/sprites/pipe-green.png", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2);
+    upPipeSprite = loadSprite(renderer, "res/sprites/pipe-green-180.png", SCREEN_WIDTH / 2, -220);
+    downPipeSprite = loadSprite(renderer, "res/sprites/pipe-green.png", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2);
 
-    startGameSprite = loadSprite("res/sprites/message.png", SCREEN_WIDTH / 2 - 75, 103);
-    backgroundSprite = loadSprite("res/sprites/background-day.png", 0, 0);
+    startGameSprite = loadSprite(renderer, "res/sprites/message.png", SCREEN_WIDTH / 2 - 75, 103);
+    backgroundSprite = loadSprite(renderer, "res/sprites/background-day.png", 0, 0);
 
-    groundSprite = loadSprite("res/sprites/base.png", 0, 0);
+    groundSprite = loadSprite(renderer, "res/sprites/base.png", 0, 0);
 
     groundYPosition = SCREEN_HEIGHT - groundSprite.textureBounds.h;
 
@@ -593,13 +559,13 @@ int main(int argc, char *args[])
     groundPositions.push_back({(float)groundSprite.textureBounds.w * 2, groundYPosition});
     groundPositions.push_back({(float)groundSprite.textureBounds.w * 3, groundYPosition});
 
-    playerSprite = loadSprite("res/sprites/yellowbird-midflap.png", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2);
+    playerSprite = loadSprite(renderer, "res/sprites/yellowbird-midflap.png", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2);
 
     player = Player{SCREEN_HEIGHT / 2, playerSprite, -10000, 400};
 
     loadNumbersSprites();
 
-    birdSprites = loadSprite("res/sprites/yellow-bird.png", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2);
+    birdSprites = loadSprite(renderer, "res/sprites/yellow-bird.png", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2);
 
     birdsBounds = {0, 0, birdSprites.textureBounds.w / 3, birdSprites.textureBounds.h};
 
