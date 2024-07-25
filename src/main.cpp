@@ -118,24 +118,6 @@ void generatePipes()
     lastPipeSpawnTime = 0;
 }
 
-int loadHighScore()
-{
-    std::string highScoreText;
-
-    // Read from the text file
-    std::ifstream highScores("high-score.txt");
-
-    // read the firstLine of the file and store the string data in my variable highScoreText.
-    getline(highScores, highScoreText);
-
-    // Close the file
-    highScores.close();
-
-    int highScore = stoi(highScoreText);
-
-    return highScore;
-}
-
 void saveScore()
 {
     std::ofstream highScores("high-score.txt");
@@ -146,6 +128,42 @@ void saveScore()
 
     // Close the file
     highScores.close();
+}
+
+int loadHighScore()
+{
+    std::string highScoreText;
+
+    // Read from the text file
+    std::ifstream highScores("high-score.txt");
+
+    // error! maybe the file doesn't exist
+    if (!highScores.is_open())
+    {
+        // if the file doesn't exist then lets create the file.
+        saveScore();
+
+        std::ifstream auxHighScores("high-score.txt");
+
+        getline(auxHighScores, highScoreText);
+
+        // Close the file
+        highScores.close();
+
+        int highScore = stoi(highScoreText);
+
+        return highScore;
+    }
+
+    // read the firstLine of the file and store the string data in my variable highScoreText.
+    getline(highScores, highScoreText);
+
+    // Close the file
+    highScores.close();
+
+    int highScore = stoi(highScoreText);
+
+    return highScore;
 }
 
 void resetGame(Player &player)
@@ -486,9 +504,9 @@ void loadNumbersSprites()
 int main(int argc, char *args[])
 {
     window = SDL_CreateWindow("My Window", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
-    
+
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-   
+
     if (startSDL(window, renderer) > 0)
     {
         return 1;
