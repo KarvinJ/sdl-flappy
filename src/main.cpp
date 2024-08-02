@@ -8,10 +8,6 @@
 #include "sdl_starter.h"
 #include "sdl_assets_loader.h"
 
-const int SCREEN_WIDTH = 960;
-const int SCREEN_HEIGHT = 544;
-const int FRAME_RATE = 60;
-
 bool isGameOver;
 bool isGamePaused;
 float startGameTimer;
@@ -64,8 +60,6 @@ SDL_Texture *highScoreTexture = nullptr;
 SDL_Rect highScoreBounds;
 
 TTF_Font *fontSquare = nullptr;
-
-SDL_Color fontColor = {255, 255, 255};
 
 int score = 0;
 float initialAngle = 0;
@@ -235,32 +229,6 @@ void handleEvents(float deltaTime)
             resetGame(player);
         }
     }
-}
-
-void updateTextureText(SDL_Texture *&texture, const char *text)
-{
-    if (fontSquare == nullptr)
-    {
-        printf("TTF_OpenFont fontSquare: %s\n", TTF_GetError());
-    }
-
-    SDL_Surface *surface = TTF_RenderUTF8_Blended(fontSquare, text, fontColor);
-    if (surface == nullptr)
-    {
-        printf("TTF_OpenFont: %s\n", TTF_GetError());
-        SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Unable to create text surface! SDL Error: %s\n", SDL_GetError());
-        exit(3);
-    }
-
-    SDL_DestroyTexture(texture);
-    texture = SDL_CreateTextureFromSurface(renderer, surface);
-    if (texture == nullptr)
-    {
-        printf("TTF_OpenFont: %s\n", TTF_GetError());
-        SDL_LogError(SDL_LOG_CATEGORY_ERROR, "Unable to create texture from surface! SDL Error: %s\n", SDL_GetError());
-    }
-
-    SDL_FreeSurface(surface);
 }
 
 void update(float deltaTime)
@@ -472,16 +440,6 @@ void render(float deltaTime)
     SDL_RenderPresent(renderer);
 }
 
-void capFrameRate(Uint32 frameStartTime)
-{
-    Uint32 frameTime = SDL_GetTicks() - frameStartTime;
-
-    if (frameTime < 1000 / FRAME_RATE)
-    {
-        SDL_Delay(1000 / FRAME_RATE - frameTime);
-    }
-}
-
 void loadNumbersSprites()
 {
     std::string baseString = "res/sprites/";
@@ -514,7 +472,7 @@ int main(int argc, char *args[])
 
     fontSquare = TTF_OpenFont("res/fonts/square_sans_serif_7.ttf", 36);
 
-    updateTextureText(highScoreTexture, "High Score: ");
+    updateTextureText(highScoreTexture, "High Score: ", fontSquare, renderer);
 
     SDL_QueryTexture(highScoreTexture, NULL, NULL, &highScoreBounds.w, &highScoreBounds.h);
     highScoreBounds.x = 20;
