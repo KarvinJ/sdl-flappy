@@ -1,12 +1,7 @@
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_image.h>
-#include <SDL2/SDL_mixer.h>
-#include <SDL2/SDL_ttf.h>
-#include <vector>
-#include <iostream>
-#include <fstream>
 #include "sdl_starter.h"
 #include "sdl_assets_loader.h"
+#include <vector>
+#include <fstream>
 
 bool isGameOver;
 bool isGamePaused;
@@ -307,7 +302,7 @@ void update(float deltaTime)
     }
 }
 
-void renderSprite(Sprite sprite)
+void renderSprite(Sprite &sprite)
 {
     SDL_RenderCopy(renderer, sprite.texture, NULL, &sprite.textureBounds);
 }
@@ -338,7 +333,7 @@ void render(float deltaTime)
     groundSprite.textureBounds.x = groundSprite.textureBounds.w * 3;
     renderSprite(groundSprite);
 
-    for (Pipe pipe : pipes)
+    for (Pipe &pipe : pipes)
     {
         if (!pipe.isDestroyed)
         {
@@ -380,7 +375,7 @@ void render(float deltaTime)
 
     SDL_RenderCopy(renderer, highScoreTexture, NULL, &highScoreBounds);
 
-    for (Vector2 groundPosition : groundPositions)
+    for (Vector2 &groundPosition : groundPositions)
     {
         groundSprite.textureBounds.x = groundPosition.x;
         renderSprite(groundSprite);
