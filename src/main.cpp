@@ -454,10 +454,28 @@ void loadNumbersSprites()
     }
 }
 
+//the rule of reference vs value also apply to primitive datatypes.
+void makeBirdAnimation(int &framesCounter, int &currentFrame, SDL_Rect &birdsBounds)
+{
+    int framesSpeed = 6;
+
+    framesCounter++;
+
+    if (framesCounter >= (60 / framesSpeed))
+    {
+        framesCounter = 0;
+        currentFrame++;
+
+        if (currentFrame > 2)
+            currentFrame = 0;
+
+        birdsBounds.x = currentFrame * birdsBounds.w;
+    }
+}
+
 int main(int argc, char *args[])
 {
     window = SDL_CreateWindow("My Window", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
-
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
 
     if (startSDL(window, renderer) > 0)
@@ -507,12 +525,9 @@ int main(int argc, char *args[])
     loadNumbersSprites();
 
     birdSprites = loadSprite(renderer, "res/sprites/yellow-bird.png", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2);
-
     birdsBounds = {0, 0, birdSprites.textureBounds.w / 3, birdSprites.textureBounds.h};
 
     int framesCounter = 0;
-    int framesSpeed = 6;
-
     int currentFrame = 0;
 
     Uint32 previousFrameTime = SDL_GetTicks();
@@ -524,27 +539,14 @@ int main(int argc, char *args[])
     while (true)
     {
         currentFrameTime = SDL_GetTicks();
-
         deltaTime = (currentFrameTime - previousFrameTime) / 1000.0f;
-
         previousFrameTime = currentFrameTime;
 
         handleEvents(deltaTime);
 
         if (!isGameOver && !isGamePaused)
         {
-            framesCounter++;
-
-            if (framesCounter >= (60 / framesSpeed))
-            {
-                framesCounter = 0;
-                currentFrame++;
-
-                if (currentFrame > 2)
-                    currentFrame = 0;
-
-                birdsBounds.x = currentFrame * birdsBounds.w;
-            }
+            makeBirdAnimation(framesCounter, currentFrame, birdsBounds);
 
             update(deltaTime);
         }
