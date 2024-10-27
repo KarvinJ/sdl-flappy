@@ -3,6 +3,7 @@
 #include <vector>
 #include <fstream>
 
+bool isSimpleGraphicsMode;
 bool isGameOver;
 bool isGamePaused;
 float startGameTimer;
@@ -12,6 +13,7 @@ float downRotationTimer = 0;
 float upRotationTimer = 0;
 
 float gravity = 0;
+float testY;
 
 SDL_Window *window = nullptr;
 SDL_Renderer *renderer = nullptr;
@@ -46,6 +48,8 @@ typedef struct
 } Player;
 
 Player player;
+
+SDL_Rect simplePlayer = {SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, 34, 24};
 
 float groundYPosition;
 
@@ -169,9 +173,14 @@ void resetGame(Player &player)
     score = 0;
     startGameTimer = 0;
     initialAngle = 0;
+
     player.y = SCREEN_HEIGHT / 2;
     player.sprite.textureBounds.x = SCREEN_WIDTH / 2;
     player.sprite.textureBounds.y = SCREEN_HEIGHT / 2;
+
+    simplePlayer.x = SCREEN_WIDTH / 2;
+    simplePlayer.y = SCREEN_HEIGHT / 2;
+
     gravity = 0;
     pipes.clear();
 }
@@ -201,13 +210,22 @@ void handleEvents(float deltaTime)
             exit(0);
         }
 
+        if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_k)
+        {
+            isSimpleGraphicsMode = !isSimpleGraphicsMode;
+        }
+
         if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_f)
         {
             isGamePaused = !isGamePaused;
             Mix_PlayChannel(-1, gamePausedSound, 0);
         }
 
-        if ((!isGameOver && event.type == SDL_MOUSEBUTTONDOWN) || (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_SPACE))
+        if (isGameOver && (event.type == SDL_MOUSEBUTTONDOWN || (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_SPACE)))
+        {
+            resetGame(player);
+        }
+        else if ((!isGameOver && event.type == SDL_MOUSEBUTTONDOWN) || (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_SPACE))
         {
             gravity = player.impulse * deltaTime;
 
@@ -217,11 +235,6 @@ void handleEvents(float deltaTime)
             initialAngle = -20;
 
             Mix_PlayChannel(-1, flapSound, 0);
-        }
-
-        else if (isGameOver && event.type == SDL_MOUSEBUTTONDOWN)
-        {
-            resetGame(player);
         }
     }
 }
@@ -237,7 +250,7 @@ void update(float deltaTime)
         generatePipes();
     }
 
-    if (player.y < -player.sprite.textureBounds.h)
+    if (player.y < - player.sprite.textureBounds.h || (isSimpleGraphicsMode && simplePlayer.y < - simplePlayer.h))
     {
         isGameOver = true;
     }
@@ -246,6 +259,9 @@ void update(float deltaTime)
     {
         player.y += gravity * deltaTime;
         player.sprite.textureBounds.y = player.y;
+
+        simplePlayer.y = player.y;
+
         gravity += player.gravityIncrement * deltaTime;
     }
 
@@ -309,35 +325,49 @@ void renderSprite(Sprite &sprite)
 
 void render(float deltaTime)
 {
-    backgroundSprite.textureBounds.x = 0;
-    renderSprite(backgroundSprite);
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_RenderClear(renderer);
 
-    backgroundSprite.textureBounds.x = backgroundSprite.textureBounds.w;
-    renderSprite(backgroundSprite);
+    if (!isSimpleGraphicsMode)
+    {
+        backgroundSprite.textureBounds.x = 0;
+        renderSprite(backgroundSprite);
 
-    backgroundSprite.textureBounds.x = backgroundSprite.textureBounds.w * 2;
-    renderSprite(backgroundSprite);
+        backgroundSprite.textureBounds.x = backgroundSprite.textureBounds.w;
+        renderSprite(backgroundSprite);
 
-    backgroundSprite.textureBounds.x = backgroundSprite.textureBounds.w * 3;
-    renderSprite(backgroundSprite);
+        backgroundSprite.textureBounds.x = backgroundSprite.textureBounds.w * 2;
+        renderSprite(backgroundSprite);
 
-    groundSprite.textureBounds.x = 0;
-    renderSprite(groundSprite);
+        backgroundSprite.textureBounds.x = backgroundSprite.textureBounds.w * 3;
+        renderSprite(backgroundSprite);
 
-    groundSprite.textureBounds.x = groundSprite.textureBounds.w;
-    renderSprite(groundSprite);
+        groundSprite.textureBounds.x = 0;
+        renderSprite(groundSprite);
 
-    groundSprite.textureBounds.x = groundSprite.textureBounds.w * 2;
-    renderSprite(groundSprite);
+        groundSprite.textureBounds.x = groundSprite.textureBounds.w;
+        renderSprite(groundSprite);
 
-    groundSprite.textureBounds.x = groundSprite.textureBounds.w * 3;
-    renderSprite(groundSprite);
+        groundSprite.textureBounds.x = groundSprite.textureBounds.w * 2;
+        renderSprite(groundSprite);
+
+        groundSprite.textureBounds.x = groundSprite.textureBounds.w * 3;
+        renderSprite(groundSprite);
+    }
 
     for (Pipe &pipe : pipes)
     {
         if (!pipe.isDestroyed)
         {
-            renderSprite(pipe.sprite);
+            if (isSimpleGraphicsMode)
+            {
+                SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
+                SDL_RenderFillRect(renderer, &pipe.sprite.textureBounds);
+            }
+            else
+            {
+                renderSprite(pipe.sprite);
+            }
         }
     }
 
@@ -375,10 +405,18 @@ void render(float deltaTime)
 
     SDL_RenderCopy(renderer, highScoreTexture, NULL, &highScoreBounds);
 
-    for (Vector2 &groundPosition : groundPositions)
+    if (isSimpleGraphicsMode)
     {
-        groundSprite.textureBounds.x = groundPosition.x;
-        renderSprite(groundSprite);
+        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+        SDL_RenderFillRect(renderer, &groundCollisionBounds);
+    }
+    else
+    {
+        for (Vector2 &groundPosition : groundPositions)
+        {
+            groundSprite.textureBounds.x = groundPosition.x;
+            renderSprite(groundSprite);
+        }
     }
 
     if (isGameOver)
@@ -386,50 +424,59 @@ void render(float deltaTime)
         renderSprite(startGameSprite);
     }
 
-    // To flip my texture whether horizontal or vertical this are the values to use.
-    // SDL_FLIP_NONE = 0x00000000,     /**< Do not flip */
-    // SDL_FLIP_HORIZONTAL = 0x00000001,    /**< flip horizontally */
-    // SDL_FLIP_VERTICAL = 0x00000002     /**< flip vertically */
-
-    SDL_RenderCopyEx(renderer, birdSprites.texture, &birdsBounds, &player.sprite.textureBounds, initialAngle, NULL, SDL_FLIP_NONE);
-
-    if (startGameTimer > 1)
+    if (!isSimpleGraphicsMode)
     {
-        downRotationTimer += deltaTime;
+        /* code */
+        // To flip my texture whether horizontal or vertical this are the values to use.
+        // SDL_FLIP_NONE = 0x00000000,     /**< Do not flip */
+        // SDL_FLIP_HORIZONTAL = 0x00000001,    /**< flip horizontally */
+        // SDL_FLIP_VERTICAL = 0x00000002     /**< flip vertically */
 
-        if (downRotationTimer < 0.5f)
+        SDL_RenderCopyEx(renderer, birdSprites.texture, &birdsBounds, &player.sprite.textureBounds, initialAngle, NULL, SDL_FLIP_NONE);
+
+        if (startGameTimer > 1)
         {
-            SDL_RenderCopyEx(renderer, birdSprites.texture, &birdsBounds, &player.sprite.textureBounds, initialAngle, NULL, SDL_FLIP_NONE);
+            downRotationTimer += deltaTime;
+
+            if (downRotationTimer < 0.5f)
+            {
+                SDL_RenderCopyEx(renderer, birdSprites.texture, &birdsBounds, &player.sprite.textureBounds, initialAngle, NULL, SDL_FLIP_NONE);
+            }
+
+            if (shouldRotateUp)
+            {
+                if (upRotationTimer > 0)
+                {
+                    upRotationTimer -= deltaTime;
+                }
+
+                if (upRotationTimer <= 0)
+                {
+                    shouldRotateUp = false;
+                }
+
+                SDL_RenderCopyEx(renderer, birdSprites.texture, &birdsBounds, &player.sprite.textureBounds, initialAngle, NULL, SDL_FLIP_NONE);
+            }
+
+            if (downRotationTimer > 0.5f)
+            {
+                if (initialAngle <= 90 && !isGameOver && !isGamePaused)
+                {
+                    initialAngle += 2;
+                }
+
+                SDL_RenderCopyEx(renderer, birdSprites.texture, &birdsBounds, &player.sprite.textureBounds, initialAngle, NULL, SDL_FLIP_NONE);
+            }
         }
-
-        if (shouldRotateUp)
+        else
         {
-            if (upRotationTimer > 0)
-            {
-                upRotationTimer -= deltaTime;
-            }
-
-            if (upRotationTimer <= 0)
-            {
-                shouldRotateUp = false;
-            }
-
-            SDL_RenderCopyEx(renderer, birdSprites.texture, &birdsBounds, &player.sprite.textureBounds, initialAngle, NULL, SDL_FLIP_NONE);
-        }
-
-        if (downRotationTimer > 0.5f)
-        {
-            if (initialAngle <= 90 && !isGameOver && !isGamePaused)
-            {
-                initialAngle += 2;
-            }
-
             SDL_RenderCopyEx(renderer, birdSprites.texture, &birdsBounds, &player.sprite.textureBounds, initialAngle, NULL, SDL_FLIP_NONE);
         }
     }
     else
     {
-        SDL_RenderCopyEx(renderer, birdSprites.texture, &birdsBounds, &player.sprite.textureBounds, initialAngle, NULL, SDL_FLIP_NONE);
+        SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
+        SDL_RenderFillRect(renderer, &simplePlayer);
     }
 
     SDL_RenderPresent(renderer);
@@ -454,7 +501,7 @@ void loadNumbersSprites()
     }
 }
 
-//the rule of reference vs value also apply to primitive datatypes.
+// the rule of reference vs value also apply to primitive datatypes.
 void makeBirdAnimation(int &framesCounter, int &currentFrame, SDL_Rect &birdsBounds)
 {
     int framesSpeed = 6;
@@ -511,7 +558,7 @@ int main(int argc, char *args[])
 
     groundSprite.textureBounds.y = groundYPosition;
 
-    groundCollisionBounds = {0, (int)groundYPosition, SCREEN_HEIGHT, groundSprite.textureBounds.h};
+    groundCollisionBounds = {0, (int)groundYPosition, SCREEN_WIDTH, groundSprite.textureBounds.h};
 
     groundPositions.push_back({0, groundYPosition});
     groundPositions.push_back({(float)groundSprite.textureBounds.w, groundYPosition});
