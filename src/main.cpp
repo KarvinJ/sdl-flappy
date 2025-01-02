@@ -250,7 +250,7 @@ void update(float deltaTime)
         generatePipes();
     }
 
-    if (player.y < - player.sprite.textureBounds.h || (isSimpleGraphicsMode && simplePlayer.y < - simplePlayer.h))
+    if (player.y < -player.sprite.textureBounds.h || (isSimpleGraphicsMode && simplePlayer.y < -simplePlayer.h))
     {
         isGameOver = true;
     }
@@ -283,11 +283,8 @@ void update(float deltaTime)
 
     for (auto actualPipe = pipes.begin(); actualPipe != pipes.end();)
     {
-        if (!actualPipe->isDestroyed)
-        {
-            actualPipe->x -= 150 * deltaTime;
-            actualPipe->sprite.textureBounds.x = actualPipe->x;
-        }
+        actualPipe->x -= 150 * deltaTime;
+        actualPipe->sprite.textureBounds.x = actualPipe->x;
 
         if (SDL_HasIntersection(&player.sprite.textureBounds, &actualPipe->sprite.textureBounds))
         {
